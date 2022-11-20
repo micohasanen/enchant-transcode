@@ -29,7 +29,7 @@ export class TrimJob extends EventEmitter {
   async start() {
     const completeProgress = this.video.newDuration / this.video.duration * 100;
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const input = this.video.path || this.video.url;
       ffmpeg(input)
           .seekInput(this.video.startTime)
@@ -73,7 +73,7 @@ export class MergeJob extends EventEmitter {
       totalFrames += video.frameRate * video.newDuration;
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       // @ts-ignore
       const command = new ffmpeg();
 
@@ -89,6 +89,11 @@ export class MergeJob extends EventEmitter {
       command.on('progress', (progress:any) => {
         const percent = progress.frames / totalFrames * 100;
         this.emit('merge:progress', {...progress, percent});
+      });
+
+      command.on('error', (error:any) => {
+        console.error(error);
+        return reject(new Error(error));
       });
 
       command.on('end', () => {

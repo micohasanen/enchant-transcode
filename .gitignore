@@ -5,3 +5,4 @@ screenshots
 .env
 .env.*
 node_modules
+deploy.yml
