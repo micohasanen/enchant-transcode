@@ -21,7 +21,6 @@ export class TrimJob extends EventEmitter {
     super();
 
     const ext = extname(video.format.filename).split('?')[0];
-    console.log(ext);
 
     this.video = video;
     this.outputPath = `${outputPath}/${uuid()}${ext}`;

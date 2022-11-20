@@ -121,7 +121,7 @@ export class UpVideo extends EventEmitter {
     }
 
     // If more than one video, merge videos
-    if (this.videos.length >= 1) {
+    if (this.videos.length > 1) {
       const merge = new MergeJob(this.videos, this.tmpPath);
       merge.on('merge:progress', (data) => {
         this.emit('status', {
