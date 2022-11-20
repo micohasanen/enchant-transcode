@@ -174,7 +174,7 @@ export class UpVideo extends EventEmitter {
     const outputFile = `${this.outputPath}/${this.id}${ext}`;
 
     fs.rename(masterOutput, outputFile, (err) => {
-      if (err) console.error(err);
+      if (err) return console.error(err);
 
       this.emit('ready', {output: outputFile});
       return Promise.resolve({status: 'success', output: outputFile});
