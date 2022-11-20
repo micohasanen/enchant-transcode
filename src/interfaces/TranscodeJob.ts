@@ -4,10 +4,16 @@ interface Video {
   endTime: number;
 }
 
+interface UploadDest {
+  s3?: boolean;
+  vimeo?: boolean;
+}
+
 export interface TranscodeJob{
   videos: Array<Video>;
   overlays: Array<any>;
   name: string;
   screenshots?: boolean;
   ssCount?: number;
+  upload: UploadDest;
 }

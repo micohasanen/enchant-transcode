@@ -1,8 +1,17 @@
 import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
+import fs from 'fs';
 import {UpVideo} from './upvideo';
 import {TranscodeJob} from './interfaces/TranscodeJob';
+import {uploadS3} from './upload/S3Upload';
+import {VimeoUpload} from './upload/VimeoUpload';
+import {
+  updateStatus,
+  getStatus,
+  updateScreenshots,
+  getScreenshots,
+} from './status/status.service';
 
 const PORT = process.env.PORT || 8081;
 const OUTPUT_PATH = './output';
@@ -12,6 +21,51 @@ const SS_PATH = './screenshots';
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+async function handleOutput(result:any, data:TranscodeJob, id:string) {
+  const urls: any = {};
+
+  // Upload to S3
+  if (!!data.upload?.s3) {
+    updateStatus({id, status: 'upload_s3'});
+    const {url: s3Url} = await uploadS3(result.output);
+    urls.s3Url = s3Url;
+  }
+
+  // Upload to Vimeo
+  if (!!data.upload?.vimeo) {
+    const uploadVimeo = new VimeoUpload(result.output, {name: data.name});
+
+    uploadVimeo.on('progress', (res) => {
+      if (res.progress !== 100) {
+        updateStatus({id, status: 'upload_vimeo', ...res});
+      }
+    });
+
+    const vimeoRes: any = await uploadVimeo.start();
+    urls.vimeoUrl = vimeoRes.url;
+  }
+
+  updateStatus({id, status: 'ready', urls});
+
+  // Remove final file from disk
+  if (fs.existsSync(result.output)) {
+    fs.unlinkSync(result.output);
+  };
+}
+
+async function handleScreenshots(files: Array<string>, id:string) {
+  const screenshots = [];
+
+  for (const file of files) {
+    const {url} = await uploadS3(file);
+    screenshots.push({url});
+
+    fs.unlinkSync(file);
+  }
+
+  updateScreenshots(screenshots, id);
+}
 
 app.post('/', async (req, res) => {
   if (!req.body) {
@@ -38,24 +92,43 @@ app.post('/', async (req, res) => {
     );
 
     upvideo.on('status', (status) => {
-      console.log(status);
-    });
-
-    await upvideo.start().catch((error) => {
-      return res.status(400).json({
-        message: 'Error validating videos.',
-        error: error.message,
+      updateStatus({
+        id: upvideo.id,
+        ...status,
       });
     });
 
+    upvideo.on('screenshots', (files:any) => {
+      handleScreenshots(files, upvideo.id);
+    });
+
+    upvideo.on('ready', (result) => {
+      handleOutput(result, data, upvideo.id);
+    });
+
+    upvideo.start()
+        .catch((error) => {
+          return res.status(400).json({
+            message: 'Error validating videos.',
+            error: error.message,
+          });
+        });
+
     return res.status(200).json({
-      message: 'Transcode completed',
+      message: 'Transcode started',
       id: upvideo.id,
     });
   } catch (error) {
     console.error(error);
     return res.status(500).send();
   }
+});
+
+app.get('/:id', async (req, res) => {
+  const status = await getStatus(req.params.id);
+  const screenshots = await getScreenshots(req.params.id);
+
+  return res.status(200).send({...status, screenshots});
 });
 
 app.listen(PORT, () => {

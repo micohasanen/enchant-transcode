@@ -9,7 +9,7 @@ type Settings = {
   outputPath: string;
   tmpPath: string;
   ssPath?: string;
-	ssCount?: number;
+  ssCount?: number;
   screenshots?: boolean;
 }
 
@@ -155,6 +155,10 @@ export class UpVideo extends EventEmitter {
         throw new Error('Screenshots without screenshot path now allowed');
       }
 
+      this.emit('status', {
+        status: 'screenshots',
+      });
+
       const ssJob = new ScreenshotJob(
           masterOutput,
           this.ssPath,
@@ -170,7 +174,10 @@ export class UpVideo extends EventEmitter {
     const outputFile = `${this.outputPath}/${this.id}${ext}`;
 
     fs.rename(masterOutput, outputFile, (err) => {
-      console.log(err);
+      if (err) console.error(err);
+
+      this.emit('ready', {output: outputFile});
+      return Promise.resolve({status: 'success', output: outputFile});
     });
 
     // Remove all temp files
@@ -179,8 +186,5 @@ export class UpVideo extends EventEmitter {
         fs.unlinkSync(file);
       }
     }
-
-    this.emit('ready', {output: outputFile});
-    return {status: 'success', output: outputFile};
   }
 }
