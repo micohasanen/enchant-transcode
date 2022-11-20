@@ -1,0 +1,7 @@
+dist
+output
+tmp
+screenshots
+.env
+.env.*
+node_modules
