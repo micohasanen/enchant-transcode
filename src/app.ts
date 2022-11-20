@@ -12,6 +12,7 @@ import {
   updateScreenshots,
   getScreenshots,
 } from './status/status.service';
+import {sendWebhook} from './webhook/webhook.cannon';
 
 const PORT = process.env.PORT || 8081;
 const OUTPUT_PATH = './output';
@@ -47,6 +48,14 @@ async function handleOutput(result:any, data:TranscodeJob, id:string) {
   }
 
   updateStatus({id, status: 'ready', urls});
+  if (data.webhookUrl) {
+    sendWebhook(data.webhookUrl, {
+      id,
+      type: 'transcode.ready',
+      status: 'ready',
+      urls,
+    });
+  }
 
   // Remove final file from disk
   if (fs.existsSync(result.output)) {
@@ -54,7 +63,11 @@ async function handleOutput(result:any, data:TranscodeJob, id:string) {
   };
 }
 
-async function handleScreenshots(files: Array<string>, id:string) {
+async function handleScreenshots(
+    files: Array<string>,
+    id:string,
+    data: TranscodeJob,
+) {
   const screenshots = [];
 
   for (const file of files) {
@@ -65,6 +78,13 @@ async function handleScreenshots(files: Array<string>, id:string) {
   }
 
   updateScreenshots(screenshots, id);
+
+  if (!data.webhookUrl) return;
+  sendWebhook(data.webhookUrl, {
+    id,
+    type: 'screenshots.ready',
+    screenshots,
+  });
 }
 
 app.post('/', async (req, res) => {
@@ -99,7 +119,7 @@ app.post('/', async (req, res) => {
     });
 
     upvideo.on('screenshots', (files:any) => {
-      handleScreenshots(files, upvideo.id);
+      handleScreenshots(files, upvideo.id, data);
     });
 
     upvideo.on('ready', (result) => {

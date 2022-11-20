@@ -16,4 +16,5 @@ export interface TranscodeJob{
   screenshots?: boolean;
   ssCount?: number;
   upload: UploadDest;
+  webhookUrl?: string;
 }

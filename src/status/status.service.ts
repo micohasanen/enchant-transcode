@@ -8,8 +8,13 @@ interface Status {
   [key: string]: any;
 }
 
+const KEY_EXPIRE_TIME = 1800; // Seconds, 30 minutes
+
 export function updateStatus(data:Status) {
-  redis.set(`transcode:${data.id}`, JSON.stringify(data));
+  redis.set(
+      `transcode:${data.id}`, JSON.stringify(data),
+      'EX', KEY_EXPIRE_TIME,
+  );
 }
 
 export async function getStatus(id:string) {
@@ -20,7 +25,10 @@ export async function getStatus(id:string) {
 }
 
 export function updateScreenshots(data:Array<any>, id:string) {
-  redis.set(`transcode:screenshots:${id}`, JSON.stringify(data));
+  redis.set(
+      `transcode:screenshots:${id}`, JSON.stringify(data),
+      'EX', KEY_EXPIRE_TIME,
+  );
 }
 
 export async function getScreenshots(id:string) {
