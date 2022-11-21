@@ -3,6 +3,7 @@ import {v4 as uuid} from 'uuid';
 import {info, TrimJob, MergeJob, ScreenshotJob, OverlayJob} from './methods';
 import {Overlay} from './interfaces/LayerTypes';
 import fs from 'fs';
+import {move} from 'fs-extra';
 import path from 'path';
 
 type Settings = {
@@ -173,12 +174,7 @@ export class UpVideo extends EventEmitter {
     const ext = path.extname(masterOutput);
     const outputFile = `${this.outputPath}/${this.id}${ext}`;
 
-    fs.rename(masterOutput, outputFile, (err) => {
-      if (err) return console.error(err);
-
-      this.emit('ready', {output: outputFile});
-      return Promise.resolve({status: 'success', output: outputFile});
-    });
+    await move(masterOutput, outputFile);
 
     // Remove all temp files
     for (const file of tmpFiles) {
@@ -186,5 +182,8 @@ export class UpVideo extends EventEmitter {
         fs.unlinkSync(file);
       }
     }
+
+    this.emit('ready', {output: outputFile});
+    return Promise.resolve({status: 'success', output: outputFile});
   }
 }
