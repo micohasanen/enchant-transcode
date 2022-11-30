@@ -158,6 +158,7 @@ export class UpVideo extends EventEmitter {
 
       this.emit('status', {
         status: 'screenshots',
+        percent: 0,
       });
 
       const ssJob = new ScreenshotJob(
@@ -165,6 +166,13 @@ export class UpVideo extends EventEmitter {
           this.ssPath,
           this.ssCount,
       );
+
+      ssJob.on('ss:progress', (data) => {
+        this.emit('status', {
+          status: 'screenshots',
+          percent: data.percent,
+        });
+      });
 
       const result: any = await ssJob.start();
       this.emit('screenshots', result.files);

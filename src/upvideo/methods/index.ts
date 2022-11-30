@@ -122,30 +122,50 @@ export class ScreenshotJob extends EventEmitter {
   }
 
   async start() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const thumbnails: any = [];
 
       this.emit('ss:started');
 
-      ffmpeg(this.videoPath)
-          .on('filenames', (filenames) => {
-            for (const filename of filenames) {
-              thumbnails.push(`${this.outputFolder}/${filename}`);
-            }
-          })
-          .on('end', () => {
-            this.emit('ss:ended');
+      const videoInfo: any = await info(this.videoPath);
+      // - 2 Prevents issues with last keyframe
+      const duration = videoInfo.format.duration - 2;
 
-            return resolve({
-              status: `${this.ssCount} screenshots taken`,
-              files: thumbnails,
-            });
-          })
-          .screenshots({
-            count: this.ssCount,
-            folder: this.outputFolder,
-            filename: `${uuid()}_%i.png`,
-          });
+      for (let i = 1; i <= this.ssCount; i++) {
+        const outputPath = `${this.outputFolder}/${uuid()}.jpg`;
+
+        const startPoint = Math.floor(duration / this.ssCount * i);
+
+        console.log({outputPath, startPoint});
+
+        ffmpeg(this.videoPath)
+            .seekInput(startPoint)
+            .outputOptions('-vframes 1')
+            .output(outputPath)
+            .on('error', (error) => {
+              console.error(error);
+            })
+            .on('end', () => {
+              this.emit('ss:progress', {
+                percent: i / this.ssCount,
+              });
+
+              thumbnails.push(outputPath);
+
+              if (thumbnails.length === this.ssCount) {
+                // Wait for file to finish writing
+                const status = {
+                  status: `${this.ssCount} screenshots taken`,
+                  files: thumbnails,
+                };
+
+                this.emit('ss:ended', status);
+
+                return resolve(status);
+              }
+            })
+            .run();
+      }
     });
   }
 }
