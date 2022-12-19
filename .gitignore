@@ -6,3 +6,4 @@ screenshots
 .env.*
 node_modules
 deploy.yml
+.DS_Store
