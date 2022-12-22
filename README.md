@@ -18,7 +18,8 @@ npm install
 ```
 
 Create a .env file and add your config
-S3 will work with any S3 compatible storage. not just S3.
+
+S3 will work with any S3 compatible storage, not just S3.
 
 ```
 REDIS_URL=redis://:@localhost:6379
@@ -37,7 +38,7 @@ VIMEO_AUTH_TOKEN=my-auth-token
 npm run dev
 ```
 
-Make a POST request to / to begin a job, check shape from interfaces/TranscodeJob.ts
+Make a POST request to / to begin a job, check shape from `interfaces/TranscodeJob.ts`
 
 ```typescript
 interface Video {
