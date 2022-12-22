@@ -62,6 +62,23 @@ interface TranscodeJob {
 }
 ```
 
+Endpoint will return an id for the job which you can use to query for the job status
+
+## Check Job Status
+
+Make a GET request to /:id to check job status
+
+Example response
+
+```json
+{
+  "id": "job-id",
+  "status": "trimming",
+  "progress": 10.75,
+  "trimIndex": 1
+}
+```
+
 ## License
 
 [GNU AGPLv3](https://choosealicense.com/licenses/agpl-3.0/)
