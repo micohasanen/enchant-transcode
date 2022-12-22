@@ -42,9 +42,7 @@
     "fs-extra": "^10.1.0",
     "install": "^0.13.0",
     "ioredis": "^5.2.4",
-    "npm": "^9.1.2",
     "read-chunk": "^4.0.3",
-    "split-file": "^2.3.0",
     "uuid": "^9.0.0",
     "vimeo": "^2.1.1"
   }
