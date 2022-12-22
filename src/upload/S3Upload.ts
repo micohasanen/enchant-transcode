@@ -10,16 +10,26 @@ import {v4 as uuid} from 'uuid';
 import {extname} from 'path';
 import {readChunk} from '../util/ChunkReader';
 
+const {
+  S3_ENDPOINT,
+  S3_REGION,
+  S3_KEY,
+  S3_SECRET,
+  S3_LOCATION,
+  S3_BUCKET,
+} = process.env;
+
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB Chunks
-const BUCKET = 'eventpulsecdn';
+const BUCKET = S3_BUCKET;
+const ACL = 'public-read';
 
 const s3Client = new S3Client({
   forcePathStyle: false,
-  endpoint: 'https://ams3.digitaloceanspaces.com',
-  region: 'ams3',
+  endpoint: S3_ENDPOINT || '',
+  region: S3_REGION || '',
   credentials: {
-    accessKeyId: process.env.SPACES_KEY || '',
-    secretAccessKey: process.env.SPACES_SECRET || '',
+    accessKeyId: S3_KEY || '',
+    secretAccessKey: S3_SECRET || '',
   },
 });
 
@@ -37,7 +47,7 @@ export async function uploadS3(path:string) {
   const upload = await s3Client.send(new CreateMultipartUploadCommand({
     Bucket: BUCKET,
     Key: objectPath,
-    ACL: 'public-read',
+    ACL,
   }));
   const {UploadId} = upload;
 
@@ -75,7 +85,7 @@ export async function uploadS3(path:string) {
 
     console.log('S3 Upload Completed');
 
-    return {url: `https://storage.eventpulse.io/${objectPath}`};
+    return {url: `${S3_LOCATION}/${objectPath}`};
   } catch (error) {
     console.error(error);
     await s3Client.send(new AbortMultipartUploadCommand({
