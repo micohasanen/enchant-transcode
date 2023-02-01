@@ -6,6 +6,7 @@ import {UpVideo} from './upvideo';
 import {TranscodeJob} from './interfaces/TranscodeJob';
 import {uploadS3} from './upload/S3Upload';
 import {VimeoUpload} from './upload/VimeoUpload';
+import {CloudflareUpload} from './upload/Cloudflare';
 import {
   updateStatus,
   getStatus,
@@ -45,6 +46,19 @@ async function handleOutput(result:any, data:TranscodeJob, id:string) {
 
     const vimeoRes: any = await uploadVimeo.start();
     urls.vimeoUrl = vimeoRes.url;
+  }
+
+  if (!!data.upload?.cloudflare) {
+    const uploadCf = new CloudflareUpload(result.output);
+
+    uploadCf.on('progress', (res) => {
+      if (res.progress !== 100) {
+        updateStatus({id, status: 'upload_cloudflare', ...res});
+      }
+    });
+
+    const completeUpload: any = await uploadCf.start();
+    urls.cloudflareUrl = completeUpload.result?.playback.hls;
   }
 
   updateStatus({id, status: 'ready', urls});
@@ -111,6 +125,11 @@ app.post('/', async (req, res) => {
         data.overlays || [],
     );
 
+    updateStatus({
+      id: upvideo.id,
+      status: 'started',
+    });
+
     upvideo.on('status', (status) => {
       updateStatus({
         id: upvideo.id,
@@ -128,6 +147,7 @@ app.post('/', async (req, res) => {
 
     upvideo.start()
         .catch((error) => {
+          console.log(error);
           return res.status(400).json({
             message: 'Error validating videos.',
             error: error.message,

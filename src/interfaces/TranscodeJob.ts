@@ -7,6 +7,7 @@ interface Video {
 interface UploadDest {
   s3?: boolean;
   vimeo?: boolean;
+  cloudflare?: boolean;
 }
 
 interface Overlay {

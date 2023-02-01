@@ -20,10 +20,10 @@ export class TrimJob extends EventEmitter {
   constructor(video: any, outputPath: string) {
     super();
 
-    const ext = extname(video.format.filename).split('?')[0];
+    // const ext = extname(video.format.filename).split('?')[0];
 
     this.video = video;
-    this.outputPath = `${outputPath}/${uuid()}${ext}`;
+    this.outputPath = `${outputPath}/${uuid()}.mp4`; // Force to mp4 container
   }
 
   async start() {

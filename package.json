@@ -43,6 +43,7 @@
     "install": "^0.13.0",
     "ioredis": "^5.2.4",
     "read-chunk": "^4.0.3",
+    "tus-js-client": "^3.0.1",
     "uuid": "^9.0.0",
     "vimeo": "^2.1.1"
   }
