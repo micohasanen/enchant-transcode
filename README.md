@@ -7,6 +7,7 @@ Toolkit to get you started on your Typescript video backend.
 ✅ Add overlays
 ✅ Upload to S3
 ✅ Upload to Vimeo
+✅ Upload to Cloudflare Stream
 ✅ Job status
 
 ## Get Started
@@ -32,6 +33,8 @@ S3_BUCKET=my-bucket
 VIMEO_CLIENT_ID=my-vimeo-client
 VIMEO_CLIENT_SECRET=my-vimeo-secret
 VIMEO_AUTH_TOKEN=my-auth-token
+CF_API_TOKEN=cloudflare-api-token
+CF_ACCOUNT_ID=cloudflare-account-id
 ```
 
 ```bash
@@ -50,6 +53,7 @@ interface Video {
 interface UploadDest {
   s3?: boolean;
   vimeo?: boolean;
+  cloudflare?: boolean;
 }
 
 interface TranscodeJob {
