@@ -38,7 +38,6 @@ export async function uploadS3(path:string) {
   const objectPath = `output/${uuid()}${ext}`;
 
   const filesize = fs.statSync(path).size;
-  console.log(filesize);
 
   console.log('S3 upload started for', objectPath);
 
@@ -72,8 +71,6 @@ export async function uploadS3(path:string) {
 
       parts.push({...completedPart, PartNumber: i + 1});
     }
-
-    console.log('Attempting to complete multipart upload');
 
     // Complete the multipart upload
     await s3Client.send(new CompleteMultipartUploadCommand({

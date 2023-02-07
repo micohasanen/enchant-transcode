@@ -53,7 +53,8 @@ export class UpVideo extends EventEmitter {
 
   private async _validateVideos() {
     for (const video of this.videos) {
-      const videoInfo: any = await info(video.path || video.url);
+      const url = video.path || video.url;
+      const videoInfo: any = await info(url);
 
       if (!video.startTime) video.startTime = 0;
       if (!video.endTime) video.endTime = videoInfo.format.duration;
