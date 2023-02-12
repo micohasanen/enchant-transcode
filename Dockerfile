@@ -14,6 +14,11 @@ RUN npm run build
 
 FROM node:16
 
+# Install ffmpeg
+RUN apt-get update -y
+RUN apt-get dist-upgrade -y
+RUN apt-get install ffmpeg -y
+
 # Create app directory
 WORKDIR /app
 
