@@ -103,7 +103,7 @@ export class UpVideo extends EventEmitter {
   }
 
   private async _downloadVideos() {
-    const urls = new Set();
+    const urls: any[] = [];
 
     // Add required videos to a set
     for (const video of this.videos) {
@@ -118,15 +118,16 @@ export class UpVideo extends EventEmitter {
       video.path = output;
       info.output = output;
 
-      urls.add(info);
+      if (!urls.find((item) => item.output === output)) {
+        urls.push(info);
+      }
     }
 
     // Download videos
     return new Promise((resolve, reject) => {
-      const urlArray = [...urls];
       let tally = 0;
 
-      urlArray.forEach((info:any, i:number) => {
+      urls.forEach((info:any, i:number) => {
         const download = new DownloadJob(info.url, info.output);
         download.start();
 
@@ -140,7 +141,7 @@ export class UpVideo extends EventEmitter {
 
         download.on('download:ended', () => {
           tally += 1;
-          if (tally === urlArray.length) return resolve(urlArray);
+          if (tally === urls.length) return resolve(urls);
         });
       });
     });
