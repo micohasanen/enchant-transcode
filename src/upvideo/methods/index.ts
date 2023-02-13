@@ -2,7 +2,6 @@ import ffmpeg from '../ffmpeg';
 import {v4 as uuid} from 'uuid';
 import {EventEmitter} from 'events';
 import {extname} from 'path';
-import fs from 'fs';
 import {Overlay} from '../interfaces/LayerTypes';
 
 export function info(path: string) {
@@ -14,20 +13,51 @@ export function info(path: string) {
   });
 }
 
+export class DownloadJob extends EventEmitter {
+  url: string;
+  outputPath: string;
+
+  constructor(url: string, outputPath: string) {
+    super();
+
+    this.url = url;
+    this.outputPath = outputPath;
+  }
+
+  async start() {
+    console.log(`Downloading from url: ${this.url}`);
+
+    ffmpeg(this.url)
+        .outputOptions(['-c copy'])
+        .on('progress', (progress) => {
+          const percent = progress.percent;
+          this.emit('download:progress', {
+            ...progress,
+            percent: percent >= 100 ? 100 : percent,
+          });
+        })
+        .on('end', () => {
+          this.emit('download:ended');
+          return Promise.resolve({
+            status: 'Download ended',
+            output: this.outputPath,
+          });
+        })
+        .save(this.outputPath);
+  }
+}
+
 export class TrimJob extends EventEmitter {
   video: any;
-  tmpPath: string;
   outputPath: string;
 
   constructor(video: any, outputPath: string) {
     super();
 
-    // First, fetch to to a temp container, then perform trim on that
-    // Direct trimming works on mp4, fails with hls
+    const ext = extname(video.path || video.url);
 
     this.video = video;
-    this.tmpPath = `${outputPath}/${uuid()}.mp4`;
-    this.outputPath = `${outputPath}/${uuid()}.mp4`; // Force to mp4 container
+    this.outputPath = `${outputPath}/${uuid()}${ext}`;
   }
 
   async start() {
@@ -36,6 +66,8 @@ export class TrimJob extends EventEmitter {
     return new Promise((resolve, reject) => {
       const input = this.video.path || this.video.url;
       ffmpeg(input)
+          .seekInput(this.video.startTime)
+          .duration(this.video.newDuration)
           .outputOptions([
             '-c copy',
           ])
@@ -50,23 +82,13 @@ export class TrimJob extends EventEmitter {
             });
           })
           .on('end', () => {
-            console.log('Fetch ended, starting trimming');
-            ffmpeg(this.tmpPath)
-                .seekInput(this.video.startTime)
-                .duration(this.video.newDuration)
-                .outputOptions(['-c copy'])
-                .on('end', () => {
-                  fs.unlinkSync(this.tmpPath);
-
-                  this.emit('trim:ended');
-                  return resolve({
-                    status: 'Trimming ended',
-                    output: this.outputPath,
-                  });
-                })
-                .save(this.outputPath);
+            this.emit('trim:ended');
+            return resolve({
+              status: 'Trimming ended',
+              output: this.outputPath,
+            });
           })
-          .save(this.tmpPath);
+          .save(this.outputPath);
     });
   }
 }

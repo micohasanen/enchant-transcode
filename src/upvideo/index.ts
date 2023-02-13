@@ -1,10 +1,11 @@
 import {EventEmitter} from 'events';
 import {v4 as uuid} from 'uuid';
-import {info, TrimJob, MergeJob, ScreenshotJob, OverlayJob} from './methods';
+import {info, TrimJob, MergeJob, ScreenshotJob, OverlayJob, DownloadJob} from './methods';
 import {Overlay} from './interfaces/LayerTypes';
 import fs from 'fs';
 import {move} from 'fs-extra';
 import path from 'path';
+import {createHash} from 'crypto';
 
 type Settings = {
   outputPath: string;
@@ -23,6 +24,7 @@ function checkDirExists(dir:string) {
 /** UpVideo */
 export class UpVideo extends EventEmitter {
   id: string;
+  timestamp: string;
   outputPath: string = './output';
   tmpPath: string = './tmp';
   ssPath?: string;
@@ -49,6 +51,7 @@ export class UpVideo extends EventEmitter {
     if (settings.ssCount) this.ssCount = settings.ssCount;
 
     this.id = uuid();
+    this.timestamp = new Date().toISOString();
   }
 
   private async _validateVideos() {
@@ -99,7 +102,52 @@ export class UpVideo extends EventEmitter {
     this.tmpPath = tmpPath;
   }
 
+  private async _downloadVideos() {
+    const urls = new Set();
+
+    // Add required videos to a set
+    for (const video of this.videos) {
+      if (!video.url) continue;
+
+      const info: any = {};
+      info.url = video.url;
+
+      const videoHash = createHash('sha256').update(video.url).digest('base64');
+      const output = `${this.tmpPath}/${videoHash}.mp4`;
+
+      video.path = output;
+      info.output = output;
+
+      urls.add(info);
+    }
+
+    // Download videos
+    return new Promise((resolve, reject) => {
+      const urlArray = [...urls];
+      let tally = 0;
+
+      urlArray.forEach((info:any, i:number) => {
+        const download = new DownloadJob(info.url, info.output);
+        download.start();
+
+        download.on('download:progress', (data) => {
+          this.emit('status', {
+            status: 'downloading',
+            downloadIndex: i,
+            progress: data.percent,
+          });
+        });
+
+        download.on('download:ended', () => {
+          tally += 1;
+          if (tally === urlArray.length) return resolve(urlArray);
+        });
+      });
+    });
+  }
+
   async start() {
+    await this._downloadVideos();
     await this._validateVideos();
     let masterOutput = '';
     const tmpFiles = [];
@@ -122,6 +170,15 @@ export class UpVideo extends EventEmitter {
       tmpFiles.push(result.output);
     }
 
+    // After all files have been trimmed, clear temp files
+    for (const video of this.videos) {
+      if (video.path) {
+        if (fs.existsSync(video.path)) {
+          fs.unlinkSync(video.path);
+        };
+      }
+    }
+
     // If more than one video, merge videos
     if (this.videos.length > 1) {
       const merge = new MergeJob(this.videos, this.tmpPath);
@@ -137,7 +194,6 @@ export class UpVideo extends EventEmitter {
     }
 
     // Add overlays
-
     if (this.overlays?.length) {
       const overlay = new OverlayJob(masterOutput, this.overlays, this.tmpPath);
       overlay.on('overlay:progress', (data) => {

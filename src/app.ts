@@ -61,7 +61,7 @@ async function handleOutput(result:any, data:TranscodeJob, id:string) {
     urls.cloudflareUrl = completeUpload.result?.playback.hls;
   }
 
-  updateStatus({id, status: 'ready', urls});
+  updateStatus({id, status: 'ready', urls, endedAt: new Date().toISOString()});
   if (data.webhookUrl) {
     sendWebhook(data.webhookUrl, {
       id,
@@ -88,7 +88,7 @@ async function handleScreenshots(
     const {url} = await uploadS3(file);
     screenshots.push({url});
 
-    fs.unlinkSync(file);
+    if (fs.existsSync(file)) fs.unlinkSync(file);
   }
 
   updateScreenshots(screenshots, id);
@@ -127,6 +127,7 @@ app.post('/', async (req, res) => {
 
     updateStatus({
       id: upvideo.id,
+      timestamp: upvideo.timestamp,
       status: 'started',
     });
 

@@ -3,16 +3,20 @@ const redis = new Redis(process.env.REDIS_URL || '');
 
 interface Status {
   id: string;
+  timestamp?: string;
   status: string;
   progress?: number;
   [key: string]: any;
 }
 
-const KEY_EXPIRE_TIME = 1800; // Seconds, 30 minutes
+const KEY_EXPIRE_TIME = 7200; // Seconds, 2 hours
 
 export function updateStatus(data:Status) {
   redis.set(
-      `transcode:${data.id}`, JSON.stringify(data),
+      `transcode:${data.id}`, JSON.stringify({
+        ...data,
+        updatedAt: new Date().toISOString(),
+      }),
       'EX', KEY_EXPIRE_TIME,
   );
 }
