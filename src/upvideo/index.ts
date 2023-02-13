@@ -112,7 +112,7 @@ export class UpVideo extends EventEmitter {
       const info: any = {};
       info.url = video.url;
 
-      const videoHash = createHash('sha256').update(video.url).digest('base64');
+      const videoHash = createHash('sha256').update(video.url).digest('hex');
       const output = `${this.tmpPath}/${videoHash}.mp4`;
 
       video.path = output;

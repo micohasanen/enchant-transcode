@@ -36,6 +36,9 @@ export class DownloadJob extends EventEmitter {
             percent: percent >= 100 ? 100 : percent,
           });
         })
+        .on('error', (err) => {
+          console.error(err);
+        })
         .on('end', () => {
           this.emit('download:ended');
           return Promise.resolve({
