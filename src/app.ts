@@ -49,7 +49,10 @@ async function handleOutput(result:any, data:TranscodeJob, id:string) {
   }
 
   if (!!data.upload?.cloudflare) {
-    const uploadCf = new CloudflareUpload(result.output);
+    const uploadCf = new CloudflareUpload(result.output, {
+      ...data.meta || {},
+      name: data.name || '',
+    });
 
     uploadCf.on('progress', (res) => {
       if (res.progress !== 100) {
@@ -68,6 +71,7 @@ async function handleOutput(result:any, data:TranscodeJob, id:string) {
       type: 'transcode.ready',
       status: 'ready',
       urls,
+      meta: data.meta || {},
     });
   }
 
