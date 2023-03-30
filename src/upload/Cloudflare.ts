@@ -12,10 +12,12 @@ const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB Chunks
 export class CloudflareUpload extends EventEmitter {
   path: string;
   mediaId: string = '';
+  meta: any;
 
-  constructor(path: string) {
+  constructor(path: string, meta: any = {}) {
     super();
     this.path = path;
+    this.meta = meta;
   }
 
   start() {
@@ -25,6 +27,8 @@ export class CloudflareUpload extends EventEmitter {
       const file = fs.createReadStream(this.path);
       const size = fs.statSync(this.path).size;
       const ext = extname(this.path);
+
+      const filename = `${uuid()}${ext}`;
 
       const upperThis = this;
 
@@ -36,7 +40,9 @@ export class CloudflareUpload extends EventEmitter {
         chunkSize: CHUNK_SIZE,
         uploadSize: size,
         metadata: {
-          filename: `${uuid()}${ext}`,
+          ...this.meta,
+          transcoder: true,
+          filename,
           defaulttimestamppct: '0.5',
         },
         onError: (error) => {

@@ -75,6 +75,7 @@ export class TrimJob extends EventEmitter {
             '-c copy',
           ])
           .on('start', () => {
+            console.log('Trimming started for', input);
             this.emit('trim:started', {outputPath: this.outputPath});
           })
           .on('progress', (progress) => {
@@ -85,7 +86,9 @@ export class TrimJob extends EventEmitter {
             });
           })
           .on('end', () => {
+            console.log('Trimming ended for', input);
             this.emit('trim:ended');
+
             return resolve({
               status: 'Trimming ended',
               output: this.outputPath,

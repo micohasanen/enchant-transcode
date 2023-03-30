@@ -20,6 +20,10 @@ interface Overlay {
 	y: number;
 }
 
+interface Meta {
+  [key: string]: any;
+}
+
 export interface TranscodeJob{
   videos: Array<Video>;
   name?: string;
@@ -28,4 +32,5 @@ export interface TranscodeJob{
   ssCount?: number;
   upload: UploadDest;
   webhookUrl?: string;
+  meta?: Meta;
 }

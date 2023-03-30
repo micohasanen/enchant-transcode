@@ -109,6 +109,9 @@ export class UpVideo extends EventEmitter {
     for (const video of this.videos) {
       if (!video.url) continue;
 
+      // If an mp4 container, perform trim straight from url
+      if (video.url.includes('.mp4')) continue;
+
       const info: any = {};
       info.url = video.url;
 
@@ -122,6 +125,8 @@ export class UpVideo extends EventEmitter {
         urls.push(info);
       }
     }
+
+    if (!urls.length) return Promise.resolve(urls);
 
     // Download videos
     return new Promise((resolve, reject) => {

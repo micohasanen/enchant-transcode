@@ -11,9 +11,12 @@ interface Status {
 
 const KEY_EXPIRE_TIME = 7200; // Seconds, 2 hours
 
-export function updateStatus(data:Status) {
+export async function updateStatus(data:Status) {
+  const prevData = await redis.get(`transcode:${data.id}`);
+
   redis.set(
       `transcode:${data.id}`, JSON.stringify({
+        ...JSON.parse(prevData || '{}'),
         ...data,
         updatedAt: new Date().toISOString(),
       }),
