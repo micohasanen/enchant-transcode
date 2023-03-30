@@ -133,6 +133,7 @@ app.post('/', async (req, res) => {
       id: upvideo.id,
       timestamp: upvideo.timestamp,
       status: 'started',
+      meta: data.meta || {},
     });
 
     upvideo.on('status', (status) => {
