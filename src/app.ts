@@ -3,7 +3,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import fs from 'fs';
 import {UpVideo} from './upvideo';
-import {TranscodeJob} from './interfaces/TranscodeJob';
+import {TranscodeJob, RealtimeJob} from './interfaces/TranscodeJob';
 import {uploadS3} from './upload/S3Upload';
 import {VimeoUpload} from './upload/VimeoUpload';
 import {CloudflareUpload} from './upload/Cloudflare';
@@ -14,6 +14,7 @@ import {
   getScreenshots,
 } from './status/status.service';
 import {sendWebhook} from './webhook/webhook.cannon';
+import {RealtimeSubtitler} from './realtime/subtitle';
 
 const PORT = process.env.PORT || 8081;
 const OUTPUT_PATH = './output';
@@ -23,6 +24,8 @@ const SS_PATH = './screenshots';
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(express.urlencoded({extended: true}));
+app.use('/subtitles', express.static('subtitles'));
 
 async function handleOutput(result:any, data:TranscodeJob, id:string) {
   const urls: any = {};
@@ -168,6 +171,30 @@ app.post('/', async (req, res) => {
     console.error(error);
     return res.status(500).send();
   }
+});
+
+app.post('/realtime', async (req, res) => {
+  const job: RealtimeJob = req.body;
+
+  if (!job?.url) {
+    return res.status(400).json({
+      message: 'URL must be specified.',
+    });
+  }
+
+  const realtime = new RealtimeSubtitler(job.url, job.language);
+  realtime.start();
+
+  realtime.on('transcript.new', (data) => {
+    if (job.webhookUrl) {
+      sendWebhook(job.webhookUrl, data);
+    }
+  });
+
+  return res.status(200).json({
+    message: 'Realtime Transcript started',
+    id: realtime.id,
+  });
 });
 
 app.get('/:id', async (req, res) => {
