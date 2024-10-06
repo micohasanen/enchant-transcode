@@ -12,7 +12,7 @@ COPY . .
 
 RUN npm run build
 
-FROM node:16
+FROM node:18
 
 # Install ffmpeg
 RUN apt-get update -y
