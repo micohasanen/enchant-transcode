@@ -3,7 +3,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import fs from 'fs';
 import {UpVideo} from './upvideo';
-import {TranscodeJob} from './interfaces/TranscodeJob';
+import {TranscodeJob, RealtimeJob} from './interfaces/TranscodeJob';
 import {uploadS3} from './upload/S3Upload';
 import {VimeoUpload} from './upload/VimeoUpload';
 import {CloudflareUpload} from './upload/Cloudflare';
@@ -14,6 +14,7 @@ import {
   getScreenshots,
 } from './status/status.service';
 import {sendWebhook} from './webhook/webhook.cannon';
+import {RealtimeSubtitler} from './realtime/subtitle';
 
 const PORT = process.env.PORT || 8081;
 const OUTPUT_PATH = './output';
@@ -23,6 +24,7 @@ const SS_PATH = './screenshots';
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(express.urlencoded({extended: true}));
 
 async function handleOutput(result:any, data:TranscodeJob, id:string) {
   const urls: any = {};
@@ -167,6 +169,63 @@ app.post('/', async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).send();
+  }
+});
+
+// Store RealtimeSubtitler instances, make into a db in the future if more instances are needed
+const realtimeSubtitlers: {[key: string]: RealtimeSubtitler} = {};
+
+app.post('/realtime', async (req, res) => {
+  const job: RealtimeJob = req.body;
+
+  if (!job?.url) {
+    return res.status(400).json({
+      message: 'URL must be specified.',
+    });
+  }
+
+  try {
+    const realtime = new RealtimeSubtitler(
+        job.url,
+        job.language || 'en',
+        job.translations || [],
+    );
+    realtimeSubtitlers[realtime.id] = realtime;
+    realtime.start();
+
+    realtime.on('transcript.new', (data) => {
+      if (job.webhookUrl) {
+        sendWebhook(job.webhookUrl, {...data, meta: job.meta || {}});
+      }
+    });
+
+    realtime.on('error', (error) => {
+      console.error('Realtime subtitler error:', error);
+      // Handle error (e.g., notify admin, attempt restart)
+    });
+
+    return res.status(200).json({
+      message: 'Realtime Transcript started',
+      id: realtime.id,
+    });
+  } catch (error) {
+    console.error('Error starting realtime transcription:', error);
+    return res.status(500).json({
+      message: 'Failed to start realtime transcription',
+    });
+  }
+});
+
+// Add an endpoint to stop the process if needed
+app.post('/realtime/:id/stop', (req, res) => {
+  const processId = req.params.id;
+  const realtimeSubtitler = realtimeSubtitlers[processId];
+
+  if (realtimeSubtitler) {
+    realtimeSubtitler.stop();
+    res.status(200).json({message: `Stopped process ${processId}`});
+  } else {
+    res.status(200).json({message: `Process ${processId} not found`});
   }
 });
 

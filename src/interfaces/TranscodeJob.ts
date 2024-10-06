@@ -34,3 +34,11 @@ export interface TranscodeJob{
   webhookUrl?: string;
   meta?: Meta;
 }
+
+export interface RealtimeJob {
+  url: string;
+  language: string;
+  translations: Array<string>;
+  webhookUrl?: string;
+  meta?: Meta;
+}
