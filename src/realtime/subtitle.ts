@@ -1,37 +1,13 @@
 import ffmpeg from '../upvideo/ffmpeg';
 import {EventEmitter} from 'events';
 import stream from 'stream';
-import fs from 'fs';
 import {v4 as uuid} from 'uuid';
-import path from 'path';
 import {RealtimeSession} from 'speechmatics';
-import axios from 'axios';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// @ts-ignore
-import webvtt from 'node-webvtt';
-import {parse as parseHLS, stringify as stringifyHLS} from 'hls-parser';
-
-const SUBTITLE_PATH = path.resolve('subtitles');
-
-const OUTBOUND_URL = 'https://e304-96-126-105-87.ngrok-free.app';
-
-interface SubtitleConfig {
-  id: string;
-  text: string;
-  start: number;
-  end: number;
-  language?: string;
-  results?: any;
-  hls?: any;
-  targetDuration: number;
-  segmentAmount: number;
-  startOffset: number;
-}
 
 export class RealtimeSubtitler extends EventEmitter {
   url: string;
