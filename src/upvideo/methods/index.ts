@@ -30,7 +30,7 @@ export class DownloadJob extends EventEmitter {
     ffmpeg(this.url)
         .outputOptions(['-c copy'])
         .on('progress', (progress) => {
-          const percent = progress.percent;
+          const percent = progress?.percent || 0;
           this.emit('download:progress', {
             ...progress,
             percent: percent >= 100 ? 100 : percent,
@@ -79,7 +79,7 @@ export class TrimJob extends EventEmitter {
             this.emit('trim:started', {outputPath: this.outputPath});
           })
           .on('progress', (progress) => {
-            const percent = progress.percent / completeProgress * 100;
+            const percent = (progress?.percent || 0) / completeProgress * 100;
             this.emit('trim:progress', {
               ...progress,
               percent: percent >= 100 ? 100 : percent,
