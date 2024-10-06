@@ -25,7 +25,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({extended: true}));
-app.use('/subtitles', express.static('subtitles'));
+app.use('/live', express.static('public'));
 
 async function handleOutput(result:any, data:TranscodeJob, id:string) {
   const urls: any = {};
@@ -173,6 +173,9 @@ app.post('/', async (req, res) => {
   }
 });
 
+// Store RealtimeSubtitler instances, make into a db in the future if more instances are needed
+const realtimeSubtitlers: {[key: string]: RealtimeSubtitler} = {};
+
 app.post('/realtime', async (req, res) => {
   const job: RealtimeJob = req.body;
 
@@ -182,19 +185,49 @@ app.post('/realtime', async (req, res) => {
     });
   }
 
-  const realtime = new RealtimeSubtitler(job.url, job.language);
-  realtime.start();
+  try {
+    const realtime = new RealtimeSubtitler(
+        job.url,
+        job.language || 'en',
+        job.translations || [],
+    );
+    realtimeSubtitlers[realtime.id] = realtime;
+    realtime.start();
 
-  realtime.on('transcript.new', (data) => {
-    if (job.webhookUrl) {
-      sendWebhook(job.webhookUrl, data);
-    }
-  });
+    realtime.on('transcript.new', (data) => {
+      if (job.webhookUrl) {
+        sendWebhook(job.webhookUrl, {...data, meta: job.meta || {}});
+      }
+    });
 
-  return res.status(200).json({
-    message: 'Realtime Transcript started',
-    id: realtime.id,
-  });
+    realtime.on('error', (error) => {
+      console.error('Realtime subtitler error:', error);
+      // Handle error (e.g., notify admin, attempt restart)
+    });
+
+    return res.status(200).json({
+      message: 'Realtime Transcript started',
+      id: realtime.id,
+    });
+  } catch (error) {
+    console.error('Error starting realtime transcription:', error);
+    return res.status(500).json({
+      message: 'Failed to start realtime transcription',
+    });
+  }
+});
+
+// Add an endpoint to stop the process if needed
+app.post('/realtime/:id/stop', (req, res) => {
+  const processId = req.params.id;
+  const realtimeSubtitler = realtimeSubtitlers[processId];
+
+  if (realtimeSubtitler) {
+    realtimeSubtitler.stop();
+    res.status(200).json({message: `Stopped process ${processId}`});
+  } else {
+    res.status(200).json({message: `Process ${processId} not found`});
+  }
 });
 
 app.get('/:id', async (req, res) => {
