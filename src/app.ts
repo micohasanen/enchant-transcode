@@ -25,7 +25,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({extended: true}));
-app.use('/live', express.static('public'));
 
 async function handleOutput(result:any, data:TranscodeJob, id:string) {
   const urls: any = {};
