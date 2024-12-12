@@ -18,7 +18,9 @@ export class RealtimeSubtitler extends EventEmitter {
   hls: any;
   ffmpegCommand: any;
 
-  private readonly MIN_CHARS_FOR_TRANSLATION = 7; // Increased this value
+  currentTranscript: any[] = [];
+
+  private readonly MIN_CHARS_FOR_TRANSLATION = 50; // Increased this value
   private readonly MAX_WAIT_TIME = 5000; // 5 seconds
 
   constructor(
@@ -51,8 +53,38 @@ export class RealtimeSubtitler extends EventEmitter {
         timestamp: new Date().getTime(),
       };
 
-      this.emit('transcript.new', payload);
-      this.processSentencesForTranslation(payload);
+      this.currentTranscript.push(payload);
+
+      if (
+        payload.text.includes('.') ||
+        payload.text.includes('!') ||
+        payload.text.includes('?') ||
+        payload.text.includes(',')
+      ) {
+        const sorted = this.currentTranscript
+            .sort((a: any, b: any) => a.start - b.start);
+
+        const combinePayload = {
+          id: this.id,
+          language: this.language,
+          text: sorted.map((res: any) => res.text).join(''),
+          start: sorted[0].start,
+          end: sorted[sorted.length - 1].end,
+          timestamp: sorted[0].timestamp,
+        };
+
+        if (combinePayload.text.length > this.MIN_CHARS_FOR_TRANSLATION) {
+          this.currentTranscript = [];
+
+          this.emit('transcript.new', combinePayload);
+          this.translateAndEmit(
+              combinePayload.text,
+              combinePayload.start,
+              combinePayload.end,
+              combinePayload.timestamp,
+          );
+        }
+      }
     });
   }
 
@@ -64,7 +96,7 @@ export class RealtimeSubtitler extends EventEmitter {
         language: this.language,
         operating_point: 'enhanced',
         enable_partials: false,
-        max_delay: 5,
+        max_delay: 4,
       },
       audio_format: {
         type: 'raw',
@@ -109,43 +141,8 @@ export class RealtimeSubtitler extends EventEmitter {
     this.realtime.stop();
   }
 
-  private accumulatedText: string = '';
-  private currentStart: number = 0;
-  private currentTimestamp: number = 0;
-
-  private processSentencesForTranslation(payload: any) {
-    this.accumulatedText += payload.text.trim() + ' ';
-
-    if (!this.currentStart) {
-      this.currentStart = payload.start;
-    }
-
-    if (!this.currentTimestamp) {
-      this.currentTimestamp = payload.timestamp;
-    }
-
-    const sentences = this.splitIntoSentences(this.accumulatedText);
-
-    const translationText = sentences.join('');
-
-    if (translationText.length >= this.MIN_CHARS_FOR_TRANSLATION) {
-      this.translateAndEmit(translationText.trim(), this.currentStart, payload.end, this.currentTimestamp);
-      this.accumulatedText = this.accumulatedText.substring(translationText.length);
-    }
-
-    if (this.accumulatedText.length > 0) {
-      this.currentStart = payload.end;
-      this.currentTimestamp = payload.timestamp;
-    } else {
-      this.currentStart = 0;
-      this.currentTimestamp = 0;
-    }
-  }
-
-  private splitIntoSentences(text: string): string[] {
-    // Improved sentence splitting logic
-    return text.match(/[^\.!\?,]+[\.!\?,]+/g) || [];
-  }
+  private lastTranslationEndTime: Record<string, number> = {};
+  private lastTranslationDuration: Record<string, number> = {};
 
   private translateAndEmit(text: string, start: number, end: number, timestamp: number) {
     this.translations.forEach((targetLanguage) => {
