@@ -3,6 +3,9 @@ import {v4 as uuid} from 'uuid';
 import {EventEmitter} from 'events';
 import {extname} from 'path';
 import {Overlay} from '../interfaces/LayerTypes';
+import * as fs from 'fs';
+import * as path from 'path';
+import {exec} from 'child_process';
 
 export function info(path: string) {
   return new Promise((resolve, reject) => {
@@ -155,7 +158,7 @@ export class MergeJob extends EventEmitter {
 export class ScreenshotJob extends EventEmitter {
   videoPath: string;
   outputFolder: string;
-  ssCount: number = 5;
+  ssCount: number = 20;
 
   constructor(videoPath: string, ssPath: string, count: number) {
     super();
@@ -285,3 +288,196 @@ export class OverlayJob extends EventEmitter {
     });
   }
 }
+
+export class SpriteJob extends EventEmitter {
+  videoPath: string;
+  outputFolder: string;
+  spriteWidth: number;
+  spriteHeight: number;
+  columns: number;
+  rows: number;
+  totalThumbnails: number;
+  interval: number;
+  spriteName: string;
+  vttName: string;
+
+  constructor(
+      videoPath: string,
+      outputFolder: string,
+      options: {
+      width?: number,
+      height?: number,
+      columns?: number,
+      rows?: number,
+      totalThumbnails?: number,
+      interval?: number
+    } = {},
+  ) {
+    super();
+    this.videoPath = videoPath;
+    this.outputFolder = outputFolder;
+
+    // Default to 100p resolution if not specified
+    this.spriteWidth = options.width || 178;
+    this.spriteHeight = options.height || 100;
+
+    // Default grid layout (7x7 = 49 thumbnails per sprite image)
+    this.columns = options.columns || 7;
+    this.rows = options.rows || 7;
+
+    // Default to 100 thumbnails total
+    this.totalThumbnails = options.totalThumbnails || 100;
+
+    // Default interval between thumbnails (calculated based on video duration)
+    this.interval = options.interval || 0; // Will be calculated in start()
+
+    // Generate unique names for the sprite and VTT files
+    const id = uuid();
+    this.spriteName = `sprite-${id}.jpg`;
+    this.vttName = `sprite-${id}.vtt`;
+  }
+
+  async start() {
+    this.emit('sprite:started');
+
+    try {
+      // Get video info to determine duration
+      const videoInfo: any = await info(this.videoPath);
+      const duration = videoInfo.format.duration;
+
+      // Calculate interval between thumbnails if not specified
+      if (!this.interval) {
+        this.interval = duration / this.totalThumbnails;
+      }
+
+      // Create temporary directory for individual thumbnails
+      const tempDir = `${this.outputFolder}/temp-${uuid()}`;
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, {recursive: true});
+      }
+
+      // Step 1: Extract thumbnails at regular intervals
+      await this.extractThumbnails(tempDir, duration);
+
+      // Step 2: Create sprite from thumbnails
+      const spritePath = await this.createSprite(tempDir);
+
+      // Step 3: Generate VTT file
+      const vttPath = await this.generateVTT();
+
+      // Clean up temporary files
+      fs.rmSync(tempDir, {recursive: true, force: true});
+
+      // Emit the ended event with status and paths
+      const result = {
+        status: 'Sprite generation completed',
+        spritePath,
+        vttPath,
+      };
+
+      this.emit('sprite:ended', result);
+      return result;
+    } catch (error) {
+      console.error('Error generating sprite:', error);
+      this.emit('sprite:error', error);
+      throw error;
+    }
+  }
+
+  private async extractThumbnails(tempDir: string, duration: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Use ffmpeg to extract thumbnails at regular intervals
+      ffmpeg(this.videoPath)
+          .outputOptions([
+            `-vf fps=1/${this.interval}`, // Extract frames at specified interval
+            `-vframes ${this.totalThumbnails}`, // Limit to specified number of frames
+            `-s ${this.spriteWidth}x${this.spriteHeight}`, // Resize to thumbnail size
+          ])
+          .output(`${tempDir}/thumb-%04d.jpg`)
+          .on('progress', (progress) => {
+            this.emit('sprite:progress', {
+              stage: 'extracting',
+              ...progress,
+            });
+          })
+          .on('end', () => {
+            resolve();
+          })
+          .on('error', (err) => {
+            reject(err);
+          })
+          .run();
+    });
+  }
+
+  private async createSprite(tempDir: string): Promise<string> {
+    const spritePath = `${this.outputFolder}/${this.spriteName}`;
+
+    return new Promise((resolve, reject) => {
+      // Use ImageMagick's montage command - simple and reliable
+      const thumbnailFiles = [];
+      for (let i = 1; i <= this.totalThumbnails; i++) {
+        const paddedIndex = i.toString().padStart(4, '0');
+        const thumbPath = `${tempDir}/thumb-${paddedIndex}.jpg`;
+        if (fs.existsSync(thumbPath)) {
+          thumbnailFiles.push(thumbPath);
+        }
+      }
+
+      if (thumbnailFiles.length === 0) {
+        return reject(new Error('No thumbnail images were generated'));
+      }
+
+      // Use ImageMagick's montage command to create the sprite
+      const montageCmd = `montage ${thumbnailFiles.join(' ')} -tile ${this.columns}x -geometry ${this.spriteWidth}x${this.spriteHeight}+0+0 -quality 75 ${spritePath}`;
+
+      exec(montageCmd, (error, stdout, stderr) => {
+        if (error) {
+          console.error('Error creating sprite with montage:', stderr);
+          reject(error);
+          return;
+        }
+
+        console.log(`Sprite created at: ${spritePath}`);
+        resolve(spritePath);
+      });
+    });
+  }
+
+  private async generateVTT(): Promise<string> {
+    const vttPath = `${this.outputFolder}/${this.vttName}`;
+
+    let vttContent = 'WEBVTT\n\n';
+
+    for (let i = 0; i < this.totalThumbnails; i++) {
+      const row = Math.floor(i / this.columns);
+      const col = i % this.columns;
+
+      const startTime = this.formatTime(i * this.interval);
+      const endTime = this.formatTime((i + 1) * this.interval);
+
+      const xPos = col * this.spriteWidth;
+      const yPos = row * this.spriteHeight;
+
+      vttContent += `${i + 1}\n`;
+      vttContent += `${startTime} --> ${endTime}\n`;
+      vttContent += `${this.spriteName}#xywh=${xPos},${yPos},${this.spriteWidth},${this.spriteHeight}\n\n`;
+    }
+
+    fs.writeFileSync(vttPath, vttContent);
+    console.log(`VTT file created at: ${vttPath}`);
+
+    return vttPath;
+  }
+
+  private formatTime(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 1000);
+
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+  }
+}
+
+

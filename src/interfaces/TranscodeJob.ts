@@ -30,6 +30,7 @@ export interface TranscodeJob{
   overlays?: Array<Overlay>;
   screenshots?: boolean;
   ssCount?: number;
+  sprite?: boolean;
   upload: UploadDest;
   webhookUrl?: string;
   meta?: Meta;
