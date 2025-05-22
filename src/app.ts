@@ -107,6 +107,35 @@ async function handleScreenshots(
   });
 }
 
+async function handleSprite(sprite:any, id:string, data: TranscodeJob) {
+  const {spritePath, vttPath} = sprite;
+  const {url: spriteUrl} = await uploadS3(spritePath);
+
+  const spriteName = spritePath.split('/').pop();
+
+  let vttContent = fs.readFileSync(vttPath, 'utf8');
+  const regex = new RegExp(`${spriteName}(#xywh=[\\d,]+)`, 'g');
+  vttContent = vttContent.replace(regex, `${spriteUrl}$1`);
+
+  fs.writeFileSync(vttPath, vttContent);
+
+  const {url: vttUrl} = await uploadS3(vttPath);
+
+  console.log({vttUrl, spriteUrl});
+
+  // Remove files from disk
+  if (fs.existsSync(vttPath)) fs.unlinkSync(vttPath);
+  if (fs.existsSync(spritePath)) fs.unlinkSync(spritePath);
+
+  if (data.webhookUrl) {
+    sendWebhook(data.webhookUrl, {
+      id,
+      type: 'sprite.ready',
+      vttUrl,
+    });
+  }
+}
+
 app.post('/', async (req, res) => {
   if (!req.body) {
     return res.status(400).json({message: 'No data received.'});
@@ -125,7 +154,8 @@ app.post('/', async (req, res) => {
           tmpPath: TMP_PATH,
           ssPath: SS_PATH,
           screenshots: !!data.screenshots,
-          ssCount: data.ssCount || 5,
+          ssCount: data.ssCount || 20,
+          sprite: !!data.sprite,
         },
         data.videos,
         data.overlays || [],
@@ -147,6 +177,10 @@ app.post('/', async (req, res) => {
 
     upvideo.on('screenshots', (files:any) => {
       handleScreenshots(files, upvideo.id, data);
+    });
+
+    upvideo.on('sprite', (sprite:any) => {
+      handleSprite(sprite, upvideo.id, data);
     });
 
     upvideo.on('ready', (result) => {

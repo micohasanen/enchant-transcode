@@ -1,6 +1,8 @@
 import {EventEmitter} from 'events';
 import {v4 as uuid} from 'uuid';
-import {info, TrimJob, MergeJob, ScreenshotJob, OverlayJob, DownloadJob} from './methods';
+import {
+  info, TrimJob, MergeJob, ScreenshotJob,
+  OverlayJob, DownloadJob, SpriteJob} from './methods';
 import {Overlay} from './interfaces/LayerTypes';
 import fs from 'fs';
 import {move} from 'fs-extra';
@@ -13,6 +15,7 @@ type Settings = {
   ssPath?: string;
   ssCount?: number;
   screenshots?: boolean;
+  sprite?: boolean;
 }
 
 function checkDirExists(dir:string) {
@@ -29,6 +32,7 @@ export class UpVideo extends EventEmitter {
   tmpPath: string = './tmp';
   ssPath?: string;
   screenshots: boolean = false;
+  sprite: boolean = true;
   ssCount: number = 5;
   videos: Array<any> = [];
   overlays: Array<Overlay> = [];
@@ -239,6 +243,24 @@ export class UpVideo extends EventEmitter {
 
       const result: any = await ssJob.start();
       this.emit('screenshots', result.files);
+    }
+
+    if (this.sprite) {
+      if (!this.ssPath) {
+        throw new Error('Sprite without screenshot path not allowed');
+      }
+
+      const sprite = new SpriteJob(masterOutput, this.ssPath);
+
+      sprite.on('sprite:ended', (data) => {
+        this.emit('sprite', data);
+      });
+
+      sprite.on('sprite:started', () => {
+        console.log('Started generating sprite');
+      });
+
+      await sprite.start();
     }
 
     // Move to output directory
