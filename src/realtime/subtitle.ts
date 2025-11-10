@@ -20,7 +20,7 @@ export class RealtimeSubtitler extends EventEmitter {
 
   currentTranscript: any[] = [];
 
-  private readonly MIN_CHARS_FOR_TRANSLATION = 50; // Increased this value
+  private readonly MIN_CHARS_FOR_TRANSLATION = 30; // Increased this value
   private readonly MAX_WAIT_TIME = 5000; // 5 seconds
 
   constructor(
@@ -59,7 +59,8 @@ export class RealtimeSubtitler extends EventEmitter {
         payload.text.includes('.') ||
         payload.text.includes('!') ||
         payload.text.includes('?') ||
-        payload.text.includes(',')
+        payload.text.includes(',') || 
+        payload.text.length >= this.MIN_CHARS_FOR_TRANSLATION
       ) {
         const sorted = this.currentTranscript
             .sort((a: any, b: any) => a.start - b.start);
