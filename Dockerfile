@@ -1,4 +1,4 @@
-FROM node:18-buster as builder
+FROM node:18-bullseye as builder
 
 # Create app directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 
 RUN npm run build
 
-FROM node:18-buster
+FROM node:18-bullseye
 
 # Install ffmpeg
 RUN apt-get update -y
