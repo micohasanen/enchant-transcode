@@ -1,12 +1,10 @@
-FROM node:18-bullseye as builder
+FROM node:18-bookworm AS builder
 
 # Create app directory
 WORKDIR /app
 
 # Install ffmpeg
-RUN apt-get update -y
-RUN apt-get dist-upgrade -y
-RUN apt-get install ffmpeg -y
+RUN apt-get update -y && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # Install app dependencies
 COPY package.json ./
@@ -17,12 +15,10 @@ COPY . .
 
 RUN npm run build
 
-FROM node:18-bullseye
+FROM node:18-bookworm
 
 # Install ffmpeg
-RUN apt-get update -y
-RUN apt-get dist-upgrade -y
-RUN apt-get install ffmpeg -y
+RUN apt-get update -y && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
